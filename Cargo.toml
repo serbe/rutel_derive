@@ -12,7 +12,8 @@ proc-macro = true
 quote="0.3"
 syn="0.11"
 #serde_json = "1.0"
-clippy = {version = "*", optional = true}
+#clippy = {version = "*", optional = true}
+clippy = "*"
 
 [features]
 default = []
