@@ -1,8 +1,8 @@
 #![recursion_limit = "128"]
 #![crate_type = "proc-macro"]
 
-#![cfg_attr(feature = "clippy", feature(plugin))]
-#![cfg_attr(feature = "clippy", plugin(clippy))]
+#![feature(plugin)]
+#![plugin(clippy)]
 
 extern crate proc_macro;
 
@@ -23,32 +23,32 @@ pub fn qqq(input: TokenStream) -> TokenStream {
     // println!("{}", method);
     let struct_name = &ast.ident;
     if let syn::Body::Struct(s) = ast.body {
-        let field_names: Vec<_> = s.fields().iter().map(|ref x| x.ident.clone().unwrap()).collect();
-        let field_names_opt: Vec<_> = s.fields().iter().filter(|ref x| {
+        let field_names: Vec<_> = s.fields().iter().map(|x| x.ident.clone().unwrap()).collect();
+        let field_names_opt: Vec<_> = s.fields().iter().filter(|x| {
             match x.ty.clone() {
                 syn::Ty::Path(_, path) => "Option" == format!("{}", path.segments[0].ident),
                 _ => false,
             }
-        }).map(|ref x| x.ident.clone().unwrap()).collect();
+        }).map(|x| x.ident.clone().unwrap()).collect();
         // let field_names_no_opt: Vec<_> = s.fields().iter().filter(|ref x| {
         //     match x.ty.clone() {
         //         syn::Ty::Path(_, path) => "Option" != format!("{}", path.segments[0].ident),
         //         _ => false,
         //     }
         // }).map(|ref x| x.ident.clone().unwrap()).collect();
-        let field_getter_names = field_names.iter().map(|ref x|
+        let field_getter_names = field_names.iter().map(|x|
             syn::Ident::new(format!("get_{}", x).as_str()));
-        let field_setter_names = field_names.iter().map(|ref x|
+        let field_setter_names = field_names.iter().map(|x|
             syn::Ident::new(format!("set_{}", x).as_str()));
-        let field_setter_opt_names = field_names_opt.iter().map(|ref x|
+        let field_setter_opt_names = field_names_opt.iter().map(|x|
             syn::Ident::new(format!("{}", x).as_str()));
-        let field_types: Vec<_> = s.fields().iter().map(|ref x| x.ty.clone()).collect();
-        let field_types_opt: Vec<_> = s.fields().iter().filter(|ref x| {
+        let field_types: Vec<_> = s.fields().iter().map(|x| x.ty.clone()).collect();
+        let field_types_opt: Vec<_> = s.fields().iter().filter(|x| {
             match x.ty.clone() {
                 syn::Ty::Path(_, path) => "Option" == format!("{}", path.segments[0].ident),
                 _ => false,
             }
-        }).map(|ref x| x.ty.clone()).collect();
+        }).map(|x| x.ty.clone()).collect();
         // let field_types_no_opt: Vec<_> = s.fields().iter().filter(|ref x| {
         //     match x.ty.clone() {
         //         syn::Ty::Path(_, path) => "Option" != format!("{}", path.segments[0].ident),
