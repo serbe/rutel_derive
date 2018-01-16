@@ -55,7 +55,7 @@ pub fn derive_get_set(input: TokenStream) -> TokenStream {
         let field_names3 = field_names.clone();
         let field_types2 = field_types.clone();
         let quoted_code = quote! {
-            #[allow(dead_code)]
+            // #[allow(dead_code)]
             impl #struct_name {
                 pub fn new(#(#field_names_no_opt: #field_types_no_opt,)*) -> Self {
                     #struct_name2{
@@ -65,8 +65,8 @@ pub fn derive_get_set(input: TokenStream) -> TokenStream {
                 }
 
                 #(
-                    pub fn #field_getter_names(&self) -> #field_types {
-                        self.#field_names2
+                    pub fn #field_getter_names(&self) -> &#field_types {
+                        &self.#field_names2
                     }
 
                     pub fn #field_setter_names(&mut self, x : #field_types2) -> &mut Self {
