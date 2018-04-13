@@ -1,8 +1,8 @@
 // #![crate_type = "proc-macro"]
 //#![recursion_limit = "192"]
 // #![feature(proc_macro, proc_macro_lib)]
-#![feature(plugin)]
-#![plugin(clippy)]
+//#![feature(plugin)]
+//#![plugin(clippy)]
 
 extern crate proc_macro;
 extern crate syn;
