@@ -67,6 +67,5 @@ pub fn derive_get_set(input: TokenStream) -> TokenStream {
         _ => quote!{},
     };
 
-    println!("{:?}", gen);
     gen.into()
 }
