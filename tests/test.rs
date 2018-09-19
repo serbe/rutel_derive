@@ -17,8 +17,8 @@ struct SomeStruct {
 #[test]
 fn test_new_struct() {
     let mut x = SomeStruct::new(1);
-    assert_eq!(&1, x.get_one());
-    assert!(x.get_two().is_none());
-    x.two(Some(1));
-    assert_eq!(&Some(1), x.get_two());
+     assert_eq!(&1, x.get_one());
+     assert!(x.get_two().is_none());
+     x.two(Some(1));
+     assert_eq!(&Some(1), x.get_two());
 }

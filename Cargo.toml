@@ -1,17 +1,15 @@
 [package]
 name = "rutel_derive"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Valeriy Kostikov <mkoctuk@gmail.com>"]
 
 [lib]
 proc-macro = true
-# Unit tests don't seem to work for proc-macro crates.
-# test = false
 
 [dependencies]
-quote="0.3"
-syn="0.11"
-#clippy = "*"
+quote = "0.6"
+syn = "0.15"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
+proc-macro2 = "0.4"
