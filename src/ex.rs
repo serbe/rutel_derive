@@ -56,7 +56,7 @@ pub fn parse(ast: &syn::DeriveInput) -> TokenStream {
     quote!{
         impl Bot {
             pub fn #name_fn(&mut self, v: &mut #name) -> Result<#item_type, String> {
-                let resp = self.create_request(stringify!(#name_request), v.to_str())?;
+                let resp = self.create_request(stringify!(#name_request), v.to_string())?;
                 from_value(resp).map_err(|e| e.to_string())
             }
         }
@@ -81,8 +81,8 @@ pub fn parse(ast: &syn::DeriveInput) -> TokenStream {
                 }
             )*
 
-            pub fn to_str(&self) -> &'static str {
-                &to_string(self).unwrap()
+            pub fn to_string(&self) -> String {
+                to_string(self).unwrap()
             }
         }
     }
