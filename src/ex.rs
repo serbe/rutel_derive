@@ -20,7 +20,7 @@ pub fn parse(ast: &syn::DeriveInput) -> TokenStream {
 
     let name = &ast.ident;
     let name_fn = to_snake_case(&format!("{}", name));
-    let name_request = first_lower(&format!("{}", name));
+    let name_request = params(&format!("{}", name));
 
     let item_type = match item_type {
         Some(ty) => quote!{ #ty },
@@ -157,7 +157,7 @@ fn to_snake_case(input: &str) -> Ident {
     Ident::new(&new_name, Span::call_site())
 }
 
-fn first_lower(input: &str) -> Ident {
+fn params(input: &str) -> Ident {
     let (start, end) = input.split_at(1);
     Ident::new(&format!("{}{}", start.to_lowercase(), end), Span::call_site())
 }
