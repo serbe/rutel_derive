@@ -5,13 +5,18 @@ extern crate syn;
 extern crate quote;
 
 use proc_macro::TokenStream;
-use syn::DeriveInput;
+use syn::{parse_macro_input, DeriveInput};
 
 mod ex;
 
 #[proc_macro_derive(GetSet, attributes(response))]
 pub fn derive_derive_get_set_response(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
+    let input = parse_macro_input!(input as DeriveInput);
 
-    ex::parse(&ast).into()
+    let expanded = ex::parse(&input);
+
+    // Hand the output tokens back to the compiler
+    TokenStream::from(expanded)
+
+    // ex::parse(&ast).into()
 }

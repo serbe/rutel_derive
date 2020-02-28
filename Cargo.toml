@@ -2,11 +2,12 @@
 name = "rutel_derive"
 version = "0.3.1"
 authors = ["Valeriy Kostikov <mkoctuk@gmail.com>"]
+edition = "2018"
 
 [lib]
 proc-macro = true
 
 [dependencies]
-quote = "0.6"
-syn = { version = "0.15", features = ["full"] }
-proc-macro2 = "0.4"
+quote = "1.0"
+syn = { version = "1.0", features = ["full"] }
+proc-macro2 = "1.0"
