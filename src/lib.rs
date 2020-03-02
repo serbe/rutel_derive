@@ -5,7 +5,7 @@ extern crate syn;
 extern crate quote;
 
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, AttributeArgs, Lit, Meta, NestedMeta};
+use syn::{parse_macro_input, AttributeArgs, ItemStruct};
 
 mod ex;
 
@@ -15,6 +15,7 @@ pub fn response(args: TokenStream, input: TokenStream) -> TokenStream {
     // println!("input: \"{}\"", input.to_string());
 
     let args = parse_macro_input!(args as AttributeArgs);
+    let input = parse_macro_input!(input as ItemStruct);
 
     let r_type = ex::result_type(args);
     println!("r_type: {}", r_type);
@@ -25,10 +26,11 @@ pub fn response(args: TokenStream, input: TokenStream) -> TokenStream {
     // println!("args: \"{}\"", args.to_string());
     // println!("input2: \"{}\"", input2.to_string());
 
-    input
+    let expanded = ex::parse_struct(input, r_type);
+
+    proc_macro::TokenStream::from(expanded)
 
     // let name = &input.ident;
-    // let expanded = ex::parse(&input);
 
     // TokenStream::from(expanded)
 
