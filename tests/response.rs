@@ -8,6 +8,7 @@
 
 #[test]
 fn works() {
+    #[allow(dead_code)]
     #[rutel_derive::response(result, "Vec<i64>")]
     pub struct GetUpdates {
         pub offset: Option<i64>,
