@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 // use syn::{Data};
 use quote::quote;
-use syn::{parse_macro_input, AttributeArgs, Lit, Meta, NestedMeta};
+use syn::{Lit, LitStr, Meta, NestedMeta, ItemStruct, Fields, FieldsNamed};
 
 pub const MESSAGE_ATTR: &str = "result";
 
@@ -26,7 +26,61 @@ pub fn result_type(args: Vec<syn::NestedMeta>) -> String {
 
 pub fn parse_struct(input: syn::ItemStruct, r_type: String) -> TokenStream {
     println!("{}", r_type);
-    let name_fn = to_snake_case(input.ident);
+    let name_fn = to_snake_case(&input.ident);
+    
+    let body = if let Fields::Named(fields_named) = &input.fields {
+        
+        let f: Vec<&syn::Field> = fields_named.named.iter().filter(|f| f.ident.is_some()).collect();
+        
+        println!("len f {}", &f.len());
+
+        let all_fields: Vec<(&syn::Field, bool)> = f.iter().map(|x| (*x, match x.ty {
+                syn::Type::Path(ref p) => p.path.segments[0].ident == "Option",
+                _ => false,
+            })).collect();
+
+            println!("len all f {}", &all_fields.len());
+
+        // let mut f = Vec::new();
+
+
+        // for field in &fields_named.named {
+        //     // Get the field identifier
+        //     let field_ident = field.ident.as_ref().unwrap();
+
+        //     // Create the string literal for the Field constructor
+        //     let field_name = field_ident.to_string();
+        //     let field_type = &field.ty;
+        //     // let _field_string = LitStr::new(&field_name, Span::call_site());
+
+        //     // dbg!(field_name);
+        //     // dbg!(const_ident);
+        //     // dbg!(&field_type);
+        //     // dbg!(&field_string);
+
+        //     // Create the statement
+        //     f.push(quote! {
+        //         pub #field_name: #field_type;
+        //     });
+        // }
+
+        // dbg!(&f);
+
+        quote! {
+            // #(#f)*
+        }
+
+
+        // quote! {
+        //     // impl #struct_ident {
+        //     //     #consts
+        //     // }
+        // }
+    } else {
+        panic!("The derive(Record) macro can only be used on structs with named fields")
+    };
+
+    // println!("{:?}", input.fields);
     // let item_type = {
     //     match get_attribute_type_multiple(ast, MESSAGE_ATTR) {
     //         Some(ty) => match ty.len() {
@@ -50,13 +104,12 @@ pub fn parse_struct(input: syn::ItemStruct, r_type: String) -> TokenStream {
     //     None => quote!{ () },
     // };
 
-    // let fields = match ast.data {
-    //     Data::Struct(ref data) => match data.fields {
-    //         syn::Fields::Named(ref fields) => fields,
+    // let fields = match input.fields {
+    //         Fields::Named(ref fields) => fields,
     //         _ => panic!("data.fields"),
-    //     },
-    //     _ => panic!("ast.data"),
     // };
+
+    // dbg!(input.fields.len());
 
     // let f: Vec<&syn::Field> = fields.named.iter().filter(|f| f.ident.is_some()).collect();
     // let all_fields: Vec<(&syn::Field, bool)> = f.iter().map(|x| (*x, match x.ty {
@@ -109,7 +162,12 @@ pub fn parse_struct(input: syn::ItemStruct, r_type: String) -> TokenStream {
     //         }
     //     }
     // }
-    quote! {}
+    quote! {
+        // #struct_impl
+        // impl Bot {
+            pub fn #name_fn() {}
+        // }
+    }
 }
 
 // fn get_attribute_type_multiple(
@@ -168,7 +226,7 @@ pub fn parse_struct(input: syn::ItemStruct, r_type: String) -> TokenStream {
 //     }
 // }
 
-fn to_snake_case(input: Ident) -> Ident {
+fn to_snake_case(input: &Ident) -> Ident {
     let new_name = input
         .to_string()
         .chars()
