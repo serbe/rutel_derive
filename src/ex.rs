@@ -1,134 +1,76 @@
-use proc_macro::TokenStream;
-use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{format_ident, quote, ToTokens, TokenStreamExt};
-use syn::{parse_macro_input, AttributeArgs, Ident, NestedMeta};
+use proc_macro2::{Ident, Span, TokenStream};
+use syn::{Meta};
+use quote::quote;
 
-struct Args {
-    path: syn::LitStr,
-    guards: Vec<Ident>,
-    wrappers: Vec<syn::Type>,
-}
-
-impl Args {
-    fn new(args: AttributeArgs) -> syn::Result<Self> {
-        let mut path = None;
-        let mut guards = Vec::new();
-        let mut wrappers = Vec::new();
-        for arg in args {
-            match arg {
-                NestedMeta::Lit(syn::Lit::Str(lit)) => match path {
-                    None => {
-                        path = Some(lit);
-                    }
-                    _ => {
-                        return Err(syn::Error::new_spanned(
-                            lit,
-                            "Multiple paths specified! Should be only one!",
-                        ));
-                    }
-                },
-                NestedMeta::Meta(syn::Meta::NameValue(nv)) => {
-                    if nv.path.is_ident("guard") {
-                        if let syn::Lit::Str(lit) = nv.lit {
-                            guards.push(Ident::new(&lit.value(), Span::call_site()));
-                        } else {
-                            return Err(syn::Error::new_spanned(
-                                nv.lit,
-                                "Attribute guard expects literal string!",
-                            ));
-                        }
-                    } else if nv.path.is_ident("wrap") {
-                        if let syn::Lit::Str(lit) = nv.lit {
-                            wrappers.push(lit.parse()?);
-                        } else {
-                            return Err(syn::Error::new_spanned(
-                                nv.lit,
-                                "Attribute guard expects type",
-                            ));
-                        }
-                    } else {
-                        return Err(syn::Error::new_spanned(
-                            nv.path,
-                            "Unknown attribute key is specified. Allowed: guard and wrap",
-                        ));
-                    }
-                }
-                arg => {
-                    return Err(syn::Error::new_spanned(arg, "Unknown attribute."));
-                }
-            }
+fn to_snake_case(ident: &Ident) -> Ident {
+    let input = ident.to_string();
+    let new_name = input.chars().enumerate().fold(String::new(), |mut acc, (i, x)| {
+        if x.is_uppercase() {
+            if i != 0 { acc.push('_') };
+            acc.push(x.to_ascii_lowercase());
+        } else {
+            acc.push(x);
         }
-        Ok(Args {
-            path: path.unwrap(),
-            guards,
-            wrappers,
-        })
-    }
+        acc
+    });
+    Ident::new(&new_name, Span::call_site())
 }
 
-pub struct Response {
-    name: syn::Ident,
-    args: Args,
-    ast: syn::ItemFn,
+fn params(ident: &Ident) -> Ident {
+    let input = ident.to_string();
+    let (start, end) = input.split_at(1);
+    Ident::new(&format!("{}{}", start.to_lowercase(), end), Span::call_site())
 }
 
-impl Response {
-    pub fn new(args: AttributeArgs, input: TokenStream) -> syn::Result<Self> {
-        if args.is_empty() {
-            return Err(syn::Error::new(
-                Span::call_site(),
-                String::from("invalid server definition"),
-            ));
+fn get_attribute_type_multiple(
+    ast: &syn::DeriveInput,
+) -> Option<Vec<Option<syn::Type>>> {
+    for attr in ast.attrs.clone() {
+        let a = attr.parse_meta();
+        match a {
+            Ok(meta) => {
+                eprintln!("meta ok");
+                match meta {
+                    Meta::Path(path) => {eprintln!("path {:?}", path.get_ident());}
+                    Meta::List(list) => {eprintln!("metalist {:?}", list.path.get_ident());}
+                    Meta::NameValue(name) => {eprintln!("metanamevalue {:?}", name.path.get_ident());}
+                }
+            },
+            _ => (),
         }
-        let ast: syn::ItemFn = syn::parse(input)?;
-        let name = ast.sig.ident.clone();
-
-        let args = Args::new(args)?;
-
-        Ok(Self { name, args, ast })
     }
+    // let attr = ast.attrs.iter().find(|a| {
+    //     let a = a.parse_meta();
+    //     match a {
+    //         // Ok(ref meta) if meta.t() == "response" => true,
+    //         Ok(syn::Meta::Path(path)) => {
+    //             eprintln!("path {:?}", path.get_ident());
+    //             true
+    //         },
+    //         _ => false,
+    //     }
+    // })?;
+    // let attr = attr.interpret_meta()?;
+
+    // if let syn::Meta::List(ref list) = attr {
+    //     Some(
+    //         list.nested
+    //             .iter()
+    //             .map(|m| meta_item_to_ty(m, "response"))
+    //             .collect(),
+    //     )
+    // } else {
+    //     panic!("The correct syntax is #[{}(type, type, ...)]", "response");
+    // }
+    None
 }
 
-impl ToTokens for Response {
-    fn to_tokens(&self, output: &mut TokenStream2) {
-        let Self {
-            name,
-            ast,
-            args:
-                Args {
-                    path,
-                    guards,
-                    wrappers,
-                },
-        } = self;
-        let resource_name = name.to_string();
-        let stream = quote! {
-            #[allow(non_camel_case_types, missing_docs)]
-            pub struct #name;
+pub fn parse(ast: &syn::DeriveInput) -> TokenStream {
+    let name_fn = to_snake_case(&ast.ident);
+    let name_params = params(&ast.ident);
+    let _ = get_attribute_type_multiple(&ast);
 
-            // impl actix_web::dev::HttpServiceFactory for #name {
-            //     fn register(self, __config: &mut actix_web::dev::AppService) {
-            //         #ast
-            //         let __resource = actix_web::Resource::new(#path)
-            //             .name(#resource_name)
-            //             .guard(actix_web::guard::#guard())
-            //             #(.guard(actix_web::guard::fn_guard(#guards)))*
-            //             #(.wrap(#wrappers))*
-            //             .#resource_type(#name);
-
-            //         actix_web::dev::HttpServiceFactory::register(__resource, __config)
-            //     }
-            // }
-        };
-
-        output.extend(stream);
-    }
-}
-
-pub(crate) fn generate(args: TokenStream, input: TokenStream) -> TokenStream {
-    let args = parse_macro_input!(args as syn::AttributeArgs);
-    match Response::new(args, input) {
-        Ok(response) => response.into_token_stream().into(),
-        Err(err) => err.to_compile_error().into(),
-    }
+    eprintln!("name_fn {}", name_fn);
+    eprintln!("name_params {}", name_params);
+    quote!{}
 }
