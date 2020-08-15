@@ -7,9 +7,10 @@
 //     pub allowed_updates: Option<Vec<String>>,
 // }
 use rutel_derive::Response;
+// use rutel_derive::generate;
 
-#[response("Vec<i64>")]
 #[derive(Response)]
+#[response("Vec<i64>")]
 pub struct EStruct {
     a_usize: usize,
     pub b_opt_i64: Option<i64>,
