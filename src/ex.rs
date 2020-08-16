@@ -11,7 +11,7 @@ fn syn_err(message: &str) -> Error {
 
 fn to_snake_case(ident: &Ident) -> Ident {
     let input = ident.to_string();
-    let new_name = input
+    let snake_case_name = input
         .chars()
         .enumerate()
         .fold(String::new(), |mut acc, (i, x)| {
@@ -25,7 +25,7 @@ fn to_snake_case(ident: &Ident) -> Ident {
             }
             acc
         });
-    Ident::new(&new_name, Span::call_site())
+    Ident::new(&snake_case_name, Span::call_site())
 }
 
 fn params(ident: &Ident) -> Ident {
@@ -73,20 +73,24 @@ fn fields(data: &Data) -> Result<Vec<(&Field, bool)>, Error> {
     Ok(all_fields)
 }
 
-fn impl_bot_quote(name_fn: &Ident, name: &Ident, message_type: &Type, name_request: &Ident) -> TokenStream {
-    let request = name_request.to_string();
+fn impl_bot(name: &Ident, attrs: &Vec<Attribute>) -> TokenStream {
+    let name_fn = to_snake_case(&name);
+    let name_request = params(&name).to_string();
+    let message_type = message_type(&attrs).unwrap();
     quote!{
         impl Bot {
             pub fn #name_fn(&mut self, v: &mut #name) -> Result<#message_type, String> {
-                let resp = self.create_request(#request, v.to_string())?;
+                let resp = self.create_request(#name_request, v.to_string())?;
                 from_value(resp).map_err(|e| e.to_string())
             }
         }
     }
 }
 
-fn new_fn(name: &Ident, field_names_no_opt: &Vec<Ident>, field_names_opt: &Vec<Ident>, field_types_no_opt: &Vec<Type>) -> TokenStream {
-    // let field_names_no_opt_copy = field_names_no_opt.clone();
+fn new_fn(name: &Ident, all_fields: &Vec<(&Field, bool)>) -> TokenStream {
+    let field_names_opt: Vec<Ident> = all_fields.iter().filter(|x| x.1).filter_map(|x| x.0.ident.clone()).collect();
+    let field_names_no_opt: Vec<Ident> = all_fields.iter().filter(|x| !x.1).filter_map(|x| x.0.ident.clone()).collect();
+    let field_types_no_opt: Vec<syn::Type> = all_fields.iter().filter(|x| !x.1).map(|x| x.0.ty.clone()).collect();
     quote! {
         pub fn new(#(#field_names_no_opt: #field_types_no_opt,)*) -> Self {
             #name{
@@ -98,7 +102,7 @@ fn new_fn(name: &Ident, field_names_no_opt: &Vec<Ident>, field_names_opt: &Vec<I
 }
 
 fn getters(all_fields: &Vec<(&Field, bool)>) -> TokenStream {
-    let field_names: &Vec<Ident> = &all_fields.iter().map(|x| x.0.ident.clone().unwrap()).collect();
+    let field_names: &Vec<Ident> = &all_fields.iter().filter_map(|x| x.0.ident.clone()).collect();
     let getter_names: &Vec<Ident> = &field_names.iter().map(|x|
         Ident::new(format!("get_{}", x).as_str(), Span::call_site())).collect();
     let field_types: &Vec<syn::Type> = &all_fields.iter().map(|x| x.0.ty.clone()).collect();
@@ -112,7 +116,7 @@ fn getters(all_fields: &Vec<(&Field, bool)>) -> TokenStream {
 }
 
 fn setters(all_fields: &Vec<(&Field, bool)>) -> TokenStream {
-    let field_names: &Vec<Ident> = &all_fields.iter().map(|x| x.0.ident.clone().unwrap()).collect();
+    let field_names: &Vec<Ident> = &all_fields.iter().filter_map(|x| x.0.ident.clone()).collect();
     let setter_names: &Vec<Ident> = &field_names.iter().map(|x|
         Ident::new(format!("{}", x).as_str(), Span::call_site())).collect();
         let field_types: &Vec<syn::Type> = &all_fields.iter().map(|x| x.0.ty.clone()).collect();
@@ -128,55 +132,25 @@ fn setters(all_fields: &Vec<(&Field, bool)>) -> TokenStream {
 
 pub fn parse(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
-    let name_fn = to_snake_case(&ast.ident);
-    let name_request = params(&ast.ident);
-    let message_type = message_type(&ast.attrs).unwrap();
     let all_fields = fields(&ast.data).unwrap();
 
-    // dbg!(&name);
-    // dbg!(&name_fn);
-    // dbg!(&name_request);
-    // dbg!(&message_type);
-
-    let impl_bot = impl_bot_quote(&name_fn, &name, &message_type, &name_request);
-    
-    let field_names: Vec<Ident> = all_fields.iter().map(|x| x.0.ident.clone().unwrap()).collect();
-    let field_names2 = field_names.clone();
-    let field_names_opt: Vec<Ident> = all_fields.iter().filter(|x| x.1).map(|x| x.0.ident.clone().unwrap()).collect();
-    let field_names_no_opt: Vec<Ident> = all_fields.iter().filter(|x| !x.1).map(|x| x.0.ident.clone().unwrap()).collect();
-    let field_names_no_opt2 = field_names_no_opt.clone();
-    let getter_names: Vec<Ident> = field_names.iter().map(|x|
-        Ident::new(format!("get_{}", x).as_str(), Span::call_site())).collect();
-    let setter_names: Vec<Ident> = field_names.iter().map(|x|
-        Ident::new(format!("{}", x).as_str(), Span::call_site())).collect();
-    let field_types: Vec<syn::Type> = all_fields.iter().map(|x| x.0.ty.clone()).collect();
-    let field_types2 = field_types.clone();
-    let field_types_no_opt: Vec<syn::Type> = all_fields.iter().filter(|x| !x.1).map(|x| x.0.ty.clone()).collect();
-
-    let new_quote = new_fn(&name, &field_names_no_opt, &field_names_opt, &field_types_no_opt);
-    
+    let impl_bot_quote = impl_bot(&ast.ident, &ast.attrs);
+    let new_quote = new_fn(&ast.ident, &all_fields);
     let getters_quote = getters(&all_fields);
-    // quote!{
-    //     // #[allow(dead_code)]
-    //     impl #name {
-    //         #(
-    //             pub fn #setter_names(&mut self, x : #field_types2) -> &mut Self {
-    //                 self.#field_names2 = x;
-    //                 self
-    //             }
-    //         )*
-    //     }
-    // }
+    let setters_quote = setters(&all_fields);
+
     quote! {
-        #impl_bot
+        #impl_bot_quote
 
         impl #name {
             #new_quote
 
             #getters_quote
 
+            #setters_quote
+
             pub fn to_string(&self) -> String {
-                to_string(self).unwrap()
+                to_string(self).map_or_else(|_|String::new(), |v| v)
             }
         }
     }
