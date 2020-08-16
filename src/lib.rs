@@ -1,5 +1,4 @@
 use proc_macro::TokenStream;
-use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
 mod ex;
@@ -20,14 +19,13 @@ mod ex;
 #[proc_macro_derive(Response, attributes(response))]
 pub fn response(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let item = input.clone();
-    let struct_name = dbg!(item).ident;
-    eprintln!("strict name: {}", struct_name);
+    // dbg!(input.clone());
 
-    let _ = ex::parse(&input);
+    let token = ex::parse(&input);
 
-    quote!("// test").into()
-    // ex::generate(args, input)
+    dbg!(&token.to_string());
+
+    token.into()
 }
 
 // https://doc.rust-lang.org/stable/reference/macros-by-example.html

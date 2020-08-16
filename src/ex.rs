@@ -1,6 +1,13 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use syn::{Meta, Data, Attribute};
+use syn::{Attribute, Data, Error, Meta, Field, Type, Lit};
+
+fn syn_err(message: &str) -> Error {
+    Error::new(
+        Span::call_site(),
+        message,
+    )
+}
 
 fn to_snake_case(ident: &Ident) -> Ident {
     let input = ident.to_string();
@@ -30,113 +37,99 @@ fn params(ident: &Ident) -> Ident {
     )
 }
 
-fn from_attr(attr: &Attribute) {
-    eprintln!("Attribute path {:?}", attr.path.get_ident());
-    if let Ok(meta) = attr.parse_meta() {
-        let _ = match meta {
-            Meta::Path(_) => {
-                eprintln!("Found response without name or description.");
-                return;
-            },
-            Meta::NameValue(_) => {
-                eprintln!("Couldn't parse this parameter attribute.");
-                return;
-            },
-            Meta::List(list) => {
-                eprintln!("have Meta::List attribute");
-                eprintln!("MetaList {:?}", list.path.get_ident())
-            },
-        };
-    } else {
-                    eprintln!("Could not parse `response` attribute");
-    };
+fn message_type(attrs: &Vec<Attribute>) -> Result<Type, Error> {
+    let attr = attrs
+        .iter()
+        .filter(|attr| attr.path.is_ident("response"))
+        .next()
+        .ok_or(syn_err("cannot find `response` attribute in target struct."))?;
+    let meta = attr.parse_meta()?;
+    let lit = match meta {
+        Meta::List(_list) => Err(syn_err("list is no meta name value")),
+        Meta::Path(_path) => Err(syn_err("path is no meta name value")),
+        Meta::NameValue(value) => Ok(value.lit),
+    }?;
+    let value = match lit {
+                Lit::Str(litstr) => Ok(litstr.value()),
+                _ => Err(syn_err("wrong lit")),
+            }?;
+    let ty = syn::parse_str::<Type>(&value)?;
+    Ok(ty)
 }
 
-fn get_attribute_type_multiple(attrs: &Vec<Attribute>) -> Option<Vec<Option<syn::Type>>> {
-    let mut filter_attrs = attrs.iter().filter(|attr| attr.path.is_ident("response"));
-    match (filter_attrs.next(), filter_attrs.next()) {
-        (Some(attr), None) => {eprintln!("Found one definitions for `response` attribute.");from_attr(attr)},
-        (_, Some(_)) => eprintln!("Found multiple definitions for `response` attribute."),
-        _ => eprintln!("Cannot find `response` attribute in target struct."),
-    }
-    // for attr in ast.attrs.clone() {
-    //     let a = attr.parse_meta();
-    //     eprintln!("attr path {:?}", attr.path.get_ident());
-    //     if let Ok(parse_attr) = attr.parse_args::<Lit>() {
-    //         match parse_attr {
-    //             Lit::Bool(b) => {eprintln!("LitBool {}", b.value)}
-    //             Lit::Str(s) => {eprintln!("LitStr {}", s.value())}
-    //             Lit::ByteStr(bs) => {eprintln!("LitByteStr {:?}", bs.value())}
-    //             Lit::Byte(b) => {eprintln!("LitByte {}", b.value())}
-    //             Lit::Char(c) => {eprintln!("LitChar {}", c.value())}
-    //             Lit::Int(i) => {eprintln!("LitInt {}", i.to_string())}
-    //             Lit::Float(f) => {eprintln!("LitFloat {}", f.to_string())}
-    //             Lit::Verbatim(v) => {eprintln!("LitVerbatim {}", v.to_string())}
-    //         }
-    //     } else {
-    //         eprintln!("No Lit");
-    //     };
-    //     match a {
-    //         Ok(meta) => {
-    //             eprintln!("meta ok");
-    //             match meta {
-    //                 Meta::Path(path) => {
-    //                     eprintln!("path {:?}", path.get_ident());
-    //                 }
-    //                 Meta::List(list) => {
-    //                     eprintln!("metalist {:?}", list.path.get_ident());
-    //                 }
-    //                 Meta::NameValue(name) => {
-    //                     eprintln!("metanamevalue {:?}", name.path.get_ident());
-    //                 }
-    //             }
-    //         }
-    //         _ => {
-    //             eprintln!("meta err");
-    //         }
-    //     }
-    // }
-    // let attr = ast.attrs.iter().find(|a| {
-    //     let a = a.parse_meta();
-    //     match a {
-    //         // Ok(ref meta) if meta.t() == "response" => true,
-    //         Ok(syn::Meta::Path(path)) => {
-    //             eprintln!("path {:?}", path.get_ident());
-    //             true
-    //         },
-    //         _ => false,
-    //     }
-    // })?;
-    // let attr = attr.interpret_meta()?;
-
-    // if let syn::Meta::List(ref list) = attr {
-    //     Some(
-    //         list.nested
-    //             .iter()
-    //             .map(|m| meta_item_to_ty(m, "response"))
-    //             .collect(),
-    //     )
-    // } else {
-    //     panic!("The correct syntax is #[{}(type, type, ...)]", "response");
-    // }
-    None
-}
-
-fn validate_data(data: &Data) {
-    match data {
-        Data::Struct(_) => eprintln!("have data struct"),
-        Data::Enum(_) => eprintln!("have data enum"),
-        Data::Union(_) => eprintln!("have data union"),
-    }
+fn fields(data: &Data) -> Result<Vec<(&Field, bool)>, Error> {
+    let named_fields = match data {
+        Data::Struct(ref data) => match data.fields {
+            syn::Fields::Named(ref fields) => Ok(fields),
+            _ => Err(syn_err("wrong fields")),
+        },
+        _ => Err(syn_err("data not struct")),
+    }?;
+    let somed_fields: Vec<&Field> = named_fields.named.iter().filter(|f| f.ident.is_some()).collect();
+    let all_fields: Vec<(&Field, bool)> = somed_fields.iter().map(|x| (*x, match x.ty {
+        syn::Type::Path(ref p) => p.path.segments[0].ident == "Option",
+        _ => false,
+    })).collect();
+    Ok(all_fields)
 }
 
 pub fn parse(ast: &syn::DeriveInput) -> TokenStream {
+    let name = &ast.ident;
     let name_fn = to_snake_case(&ast.ident);
     let name_params = params(&ast.ident);
-    let _ = get_attribute_type_multiple(&ast.attrs);
-    validate_data(&ast.data);
+    let message_type = message_type(&ast.attrs).unwrap();
+    let all_fields = fields(&ast.data).unwrap();
 
-    eprintln!("name_fn {}", name_fn);
-    eprintln!("name_params {}", name_params);
-    quote! {}
+    // dbg!(&name);
+    // dbg!(&name_fn);
+    // dbg!(&name_params);
+    // dbg!(&message_type);
+    
+    let field_names: Vec<Ident> = all_fields.iter().map(|x| x.0.ident.clone().unwrap()).collect();
+    let field_names2 = field_names.clone();
+    let field_names_opt: Vec<Ident> = all_fields.iter().filter(|x| x.1).map(|x| x.0.ident.clone().unwrap()).collect();
+    let field_names_no_opt: Vec<Ident> = all_fields.iter().filter(|x| !x.1).map(|x| x.0.ident.clone().unwrap()).collect();
+    let field_names_no_opt2 = field_names_no_opt.clone();
+    let getter_names: Vec<Ident> = field_names.iter().map(|x|
+        Ident::new(format!("get_{}", x).as_str(), Span::call_site())).collect();
+    let setter_names: Vec<Ident> = field_names.iter().map(|x|
+        Ident::new(format!("{}", x).as_str(), Span::call_site())).collect();
+    let field_types: Vec<syn::Type> = all_fields.iter().map(|x| x.0.ty.clone()).collect();
+    let field_types2 = field_types.clone();
+    let field_types_no_opt: Vec<syn::Type> = all_fields.iter().filter(|x| !x.1).map(|x| x.0.ty.clone()).collect();
+
+    quote!{
+        impl Bot {
+            pub fn #name_fn(&mut self, v: &mut #name) -> Result<#message_type, String> {
+                let resp = self.create_request(#name_params, v.to_string())?;
+                from_value(resp).map_err(|e| e.to_string())
+            }
+        }
+
+        // #[allow(dead_code)]
+        impl #name {
+            pub fn new(#(#field_names_no_opt: #field_types_no_opt,)*) -> Self {
+                #name{
+                    #(#field_names_no_opt2,)*
+                    #(#field_names_opt: None,)*
+                }
+            }
+
+            #(
+                pub fn #getter_names(&self) -> &#field_types {
+                    &self.#field_names
+                }
+
+                pub fn #setter_names(&mut self, x : #field_types2) -> &mut Self {
+                    self.#field_names2 = x;
+                    self
+                }
+            )*
+
+            pub fn to_string(&self) -> String {
+                to_string(self).unwrap()
+            }
+        }
+    }
+    // quote! {}
 }
