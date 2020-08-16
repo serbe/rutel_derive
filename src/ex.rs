@@ -73,17 +73,72 @@ fn fields(data: &Data) -> Result<Vec<(&Field, bool)>, Error> {
     Ok(all_fields)
 }
 
+fn impl_bot_quote(name_fn: &Ident, name: &Ident, message_type: &Type, name_request: &Ident) -> TokenStream {
+    let request = name_request.to_string();
+    quote!{
+        impl Bot {
+            pub fn #name_fn(&mut self, v: &mut #name) -> Result<#message_type, String> {
+                let resp = self.create_request(#request, v.to_string())?;
+                from_value(resp).map_err(|e| e.to_string())
+            }
+        }
+    }
+}
+
+fn new_fn(name: &Ident, field_names_no_opt: &Vec<Ident>, field_names_opt: &Vec<Ident>, field_types_no_opt: &Vec<Type>) -> TokenStream {
+    // let field_names_no_opt_copy = field_names_no_opt.clone();
+    quote! {
+        pub fn new(#(#field_names_no_opt: #field_types_no_opt,)*) -> Self {
+            #name{
+                #(#field_names_no_opt,)*
+                #(#field_names_opt: None,)*
+            }
+        }
+    }
+}
+
+fn getters(all_fields: &Vec<(&Field, bool)>) -> TokenStream {
+    let field_names: &Vec<Ident> = &all_fields.iter().map(|x| x.0.ident.clone().unwrap()).collect();
+    let getter_names: &Vec<Ident> = &field_names.iter().map(|x|
+        Ident::new(format!("get_{}", x).as_str(), Span::call_site())).collect();
+    let field_types: &Vec<syn::Type> = &all_fields.iter().map(|x| x.0.ty.clone()).collect();
+    quote! {
+        #(
+            pub fn #getter_names(&self) -> &#field_types {
+                &self.#field_names
+            }
+        )*
+    }
+}
+
+fn setters(all_fields: &Vec<(&Field, bool)>) -> TokenStream {
+    let field_names: &Vec<Ident> = &all_fields.iter().map(|x| x.0.ident.clone().unwrap()).collect();
+    let setter_names: &Vec<Ident> = &field_names.iter().map(|x|
+        Ident::new(format!("{}", x).as_str(), Span::call_site())).collect();
+        let field_types: &Vec<syn::Type> = &all_fields.iter().map(|x| x.0.ty.clone()).collect();
+    quote! {
+        #(
+            pub fn #setter_names(&mut self, x : #field_types) -> &mut Self {
+                self.#field_names = x;
+                self
+            }
+        )*
+    }
+}
+
 pub fn parse(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
     let name_fn = to_snake_case(&ast.ident);
-    let name_params = params(&ast.ident);
+    let name_request = params(&ast.ident);
     let message_type = message_type(&ast.attrs).unwrap();
     let all_fields = fields(&ast.data).unwrap();
 
     // dbg!(&name);
     // dbg!(&name_fn);
-    // dbg!(&name_params);
+    // dbg!(&name_request);
     // dbg!(&message_type);
+
+    let impl_bot = impl_bot_quote(&name_fn, &name, &message_type, &name_request);
     
     let field_names: Vec<Ident> = all_fields.iter().map(|x| x.0.ident.clone().unwrap()).collect();
     let field_names2 = field_names.clone();
@@ -98,38 +153,32 @@ pub fn parse(ast: &syn::DeriveInput) -> TokenStream {
     let field_types2 = field_types.clone();
     let field_types_no_opt: Vec<syn::Type> = all_fields.iter().filter(|x| !x.1).map(|x| x.0.ty.clone()).collect();
 
-    quote!{
-        impl Bot {
-            pub fn #name_fn(&mut self, v: &mut #name) -> Result<#message_type, String> {
-                let resp = self.create_request(#name_params, v.to_string())?;
-                from_value(resp).map_err(|e| e.to_string())
-            }
-        }
+    let new_quote = new_fn(&name, &field_names_no_opt, &field_names_opt, &field_types_no_opt);
+    
+    let getters_quote = getters(&all_fields);
+    // quote!{
+    //     // #[allow(dead_code)]
+    //     impl #name {
+    //         #(
+    //             pub fn #setter_names(&mut self, x : #field_types2) -> &mut Self {
+    //                 self.#field_names2 = x;
+    //                 self
+    //             }
+    //         )*
+    //     }
+    // }
+    quote! {
+        #impl_bot
 
-        // #[allow(dead_code)]
         impl #name {
-            pub fn new(#(#field_names_no_opt: #field_types_no_opt,)*) -> Self {
-                #name{
-                    #(#field_names_no_opt2,)*
-                    #(#field_names_opt: None,)*
-                }
-            }
+            #new_quote
 
-            #(
-                pub fn #getter_names(&self) -> &#field_types {
-                    &self.#field_names
-                }
-
-                pub fn #setter_names(&mut self, x : #field_types2) -> &mut Self {
-                    self.#field_names2 = x;
-                    self
-                }
-            )*
+            #getters_quote
 
             pub fn to_string(&self) -> String {
                 to_string(self).unwrap()
             }
         }
     }
-    // quote! {}
+    
 }
