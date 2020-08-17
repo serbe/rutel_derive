@@ -1,16 +1,14 @@
-use serde::Serialize;
-use serde_json::{from_value, to_string, Value, Result, json};
-
 use rutel_derive::Response;
+use serde::Serialize;
+use serde_json::{from_value, json, to_string, Error, Value};
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
-pub struct Bot {
-    token: String,
-    proxy: String,
-}
+pub struct Bot {}
 
 impl Bot {
-    pub fn create_request(
+    pub async fn create_request(
         &mut self,
         _method: &'static str,
         _values: String,
