@@ -90,9 +90,9 @@ fn impl_bot(name: &Ident, attrs: &Vec<Attribute>) -> TokenStream {
     let message_type = message_type(&attrs).unwrap();
     quote! {
         impl Bot {
-            pub fn #name_fn(&mut self, v: &mut #name) -> Result<#message_type, String> {
+            pub fn #name_fn(&mut self, v: &mut #name) -> Result<#message_type> {
                 let resp = self.create_request(#name_request, v.to_string())?;
-                from_value(resp).map_err(|e| e.to_string())
+                from_value(resp)
             }
         }
     }

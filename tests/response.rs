@@ -1,5 +1,5 @@
 use serde::Serialize;
-use serde_json::{from_value, to_string, Value};
+use serde_json::{from_value, to_string, Value, Result, json};
 
 use rutel_derive::Response;
 
@@ -14,8 +14,8 @@ impl Bot {
         &mut self,
         _method: &'static str,
         _values: String,
-    ) -> Result<Value, String> {
-        Err(String::from("test error"))
+    ) -> Result<Value> {
+        Ok(json!(null))
     }
 }
 
