@@ -90,7 +90,7 @@ fn impl_bot(name: &Ident, attrs: &Vec<Attribute>) -> TokenStream {
     let message_type = message_type(&attrs).unwrap();
     quote! {
         impl Bot {
-            pub fn #name_fn(&mut self, v: &mut #name) -> Result<#message_type> {
+            pub async fn #name_fn(&mut self, v: &mut #name) -> Result<#message_type> {
                 let resp = self.create_request(#name_request, v.to_string())?;
                 from_value(resp)
             }
@@ -171,6 +171,9 @@ pub fn parse(ast: &syn::DeriveInput) -> TokenStream {
     let new_quote = new_fn(&ast.ident, &all_fields);
     let getters_quote = getters(&all_fields);
     let setters_quote = setters(&all_fields);
+
+    // dbg!(&getters_quote.to_string());
+    // dbg!(&setters_quote.to_string());
 
     quote! {
         #impl_bot_quote
