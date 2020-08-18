@@ -1,8 +1,17 @@
+use std::result;
+
 use rutel_derive::Response;
 use serde::Serialize;
-use serde_json::{from_value, json, to_string, Error, Value};
+use serde_json::{from_value, json, to_string, Value};
+use thiserror::Error as TErr;
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = result::Result<T, Error>;
+
+#[derive(TErr, Debug)]
+pub enum Error {
+    #[error("json error")]
+    JSON(#[from] serde_json::Error),
+}
 
 #[derive(Debug)]
 pub struct Bot {}
@@ -13,7 +22,8 @@ impl Bot {
         _method: &'static str,
         _values: String,
     ) -> Result<Value> {
-        Ok(json!(null))
+        let value = json!(null);
+        Ok(value)
     }
 }
 

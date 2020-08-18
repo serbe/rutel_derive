@@ -91,8 +91,8 @@ fn impl_bot(name: &Ident, attrs: &Vec<Attribute>) -> TokenStream {
     quote! {
         impl Bot {
             pub async fn #name_fn(&mut self, v: &mut #name) -> Result<#message_type> {
-                let resp = self.create_request(#name_request, v.to_string()).await?;
-                from_value(resp)
+                let resp = self.create_request(#name_request, v.to_string()?).await?;
+                Ok(from_value(resp)?)
             }
         }
     }
@@ -172,6 +172,7 @@ pub fn parse(ast: &syn::DeriveInput) -> TokenStream {
     let getters_quote = getters(&all_fields);
     let setters_quote = setters(&all_fields);
 
+    // dbg!(&impl_bot_quote.to_string());
     // dbg!(&getters_quote.to_string());
     // dbg!(&setters_quote.to_string());
 
@@ -185,8 +186,8 @@ pub fn parse(ast: &syn::DeriveInput) -> TokenStream {
 
             #setters_quote
 
-            pub fn to_string(&self) -> String {
-                to_string(self).map_or_else(|_|String::new(), |v| v)
+            pub fn to_string(&self) -> Result<String> {
+                Ok(to_string(self)?)
             }
         }
     }
