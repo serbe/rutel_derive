@@ -2,7 +2,7 @@ use std::result;
 
 use rutel_derive::Response;
 use serde::Serialize;
-use serde_json::{from_value, json, to_string, Value};
+use serde_json::{json, Value};
 use thiserror::Error as TErr;
 
 pub type Result<T> = result::Result<T, Error>;

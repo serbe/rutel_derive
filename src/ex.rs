@@ -91,8 +91,8 @@ fn impl_bot(name: &Ident, attrs: &Vec<Attribute>) -> TokenStream {
     quote! {
         impl Bot {
             pub async fn #name_fn(&mut self, v: &#name) -> Result<#message_type> {
-                let resp = self.create_request(#name_request, v.to_string()?).await?;
-                Ok(from_value(resp)?)
+                let resp = self.create_request(#name_request, v.to_string()).await?;
+                Ok(serde_json::from_value(resp)?)
             }
         }
     }
@@ -163,6 +163,16 @@ fn setters(all_fields: &Vec<(&Field, bool)>) -> TokenStream {
     }
 }
 
+fn display(name: &Ident) -> TokenStream {
+    quote! {
+        impl std::fmt::Display for #name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.to_string())
+            }
+        }
+    }
+}
+
 pub fn parse(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
     let all_fields = fields(&ast.data).unwrap();
@@ -171,6 +181,7 @@ pub fn parse(ast: &syn::DeriveInput) -> TokenStream {
     let new_quote = new_fn(&ast.ident, &all_fields);
     let getters_quote = getters(&all_fields);
     let setters_quote = setters(&all_fields);
+    let display_quote = display(&name);
 
     // dbg!(&impl_bot_quote.to_string());
     // dbg!(&getters_quote.to_string());
@@ -186,9 +197,14 @@ pub fn parse(ast: &syn::DeriveInput) -> TokenStream {
 
             #setters_quote
 
-            pub fn to_string(&self) -> Result<String> {
-                Ok(to_string(self)?)
+            pub fn to_string(&self) -> String {
+                match serde_json::to_string(self) {
+                    Ok(value) => value,
+                    Err(_) => String::new(),
+                }
             }
         }
+
+        #display_quote
     }
 }
