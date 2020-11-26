@@ -34,12 +34,11 @@ fn params(ident: &Ident) -> Ident {
     )
 }
 
-fn message_type(attrs: &Vec<Attribute>) -> Result<Type, Error> {
+fn message_type(attrs: &[Attribute]) -> Result<Type, Error> {
     let attr = attrs
         .iter()
-        .filter(|attr| attr.path.is_ident("response"))
-        .next()
-        .ok_or(syn_err(
+        .find(|attr| attr.path.is_ident("response"))
+        .ok_or_else(|| syn_err(
             "cannot find `response` attribute in target struct.",
         ))?;
     let meta = attr.parse_meta()?;
@@ -84,7 +83,7 @@ fn fields(data: &Data) -> Result<Vec<(&Field, bool)>, Error> {
     Ok(all_fields)
 }
 
-fn impl_bot(name: &Ident, attrs: &Vec<Attribute>) -> TokenStream {
+fn impl_bot(name: &Ident, attrs: &[Attribute]) -> TokenStream {
     let name_fn = to_snake_case(&name);
     let name_request = params(&name).to_string();
     let message_type = message_type(&attrs).unwrap();
@@ -98,7 +97,7 @@ fn impl_bot(name: &Ident, attrs: &Vec<Attribute>) -> TokenStream {
     }
 }
 
-fn new_fn(name: &Ident, all_fields: &Vec<(&Field, bool)>) -> TokenStream {
+fn new_fn(name: &Ident, all_fields: &[(&Field, bool)]) -> TokenStream {
     let field_names_opt: Vec<Ident> = all_fields
         .iter()
         .filter(|x| x.1)
@@ -124,7 +123,7 @@ fn new_fn(name: &Ident, all_fields: &Vec<(&Field, bool)>) -> TokenStream {
     }
 }
 
-fn getters(all_fields: &Vec<(&Field, bool)>) -> TokenStream {
+fn getters(all_fields: &[(&Field, bool)]) -> TokenStream {
     let field_names: &Vec<Ident> = &all_fields
         .iter()
         .filter_map(|x| x.0.ident.clone())
@@ -143,7 +142,7 @@ fn getters(all_fields: &Vec<(&Field, bool)>) -> TokenStream {
     }
 }
 
-fn setters(all_fields: &Vec<(&Field, bool)>) -> TokenStream {
+fn setters(all_fields: &[(&Field, bool)]) -> TokenStream {
     let field_names: &Vec<Ident> = &all_fields
         .iter()
         .filter_map(|x| x.0.ident.clone())
