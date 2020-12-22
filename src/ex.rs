@@ -38,9 +38,7 @@ fn message_type(attrs: &[Attribute]) -> Result<Type, Error> {
     let attr = attrs
         .iter()
         .find(|attr| attr.path.is_ident("response"))
-        .ok_or_else(|| syn_err(
-            "cannot find `response` attribute in target struct.",
-        ))?;
+        .ok_or_else(|| syn_err("cannot find `response` attribute in target struct."))?;
     let meta = attr.parse_meta()?;
     let lit = match meta {
         Meta::List(_list) => Err(syn_err("list is no meta name value")),
