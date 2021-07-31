@@ -82,9 +82,9 @@ fn fields(data: &Data) -> Result<Vec<(&Field, bool)>, Error> {
 }
 
 fn impl_bot(name: &Ident, attrs: &[Attribute]) -> TokenStream {
-    let name_fn = to_snake_case(&name);
-    let name_request = params(&name).to_string();
-    let message_type = message_type(&attrs).unwrap();
+    let name_fn = to_snake_case(name);
+    let name_request = params(name).to_string();
+    let message_type = message_type(attrs).unwrap();
     quote! {
         impl Bot {
             pub async fn #name_fn(&mut self, v: &#name) -> Result<#message_type> {
@@ -178,7 +178,7 @@ pub fn parse(ast: &syn::DeriveInput) -> TokenStream {
     let new_quote = new_fn(&ast.ident, &all_fields);
     let getters_quote = getters(&all_fields);
     let setters_quote = setters(&all_fields);
-    let display_quote = display(&name);
+    let display_quote = display(name);
 
     // dbg!(&impl_bot_quote.to_string());
     // dbg!(&getters_quote.to_string());
