@@ -1,6 +1,6 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use syn::{Attribute, Data, Error, Field, Lit, Meta, Type};
+use syn::{Attribute, Data, Error, Expr, Field, Lit, Meta, Type};
 
 fn syn_err(message: &str) -> Error {
     Error::new(Span::call_site(), message)
@@ -37,17 +37,20 @@ fn params(ident: &Ident) -> Ident {
 fn message_type(attrs: &[Attribute]) -> Result<Type, Error> {
     let attr = attrs
         .iter()
-        .find(|attr| attr.path.is_ident("response"))
+        .find(|attr| attr.path().is_ident("response"))
         .ok_or_else(|| syn_err("cannot find `response` attribute in target struct."))?;
-    let meta = attr.parse_meta()?;
-    let lit = match meta {
-        Meta::List(_list) => Err(syn_err("list is no meta name value")),
-        Meta::Path(_path) => Err(syn_err("path is no meta name value")),
-        Meta::NameValue(value) => Ok(value.lit),
+    let meta = attr.meta.clone();
+    let expr = match meta {
+        Meta::NameValue(name_value) => Ok(name_value.value),
+        _ => Err(syn_err("meta no have name value")),
+    }?;
+    let lit = match expr {
+        Expr::Lit(expr_lit) => Ok(expr_lit.lit),
+        _ => Err(syn_err("expression no have lit")),
     }?;
     let value = match lit {
-        Lit::Str(litstr) => Ok(litstr.value()),
-        _ => Err(syn_err("wrong lit")),
+        Lit::Str(lit_str) => Ok(lit_str.value()),
+        _ => Err(syn_err("lit no have str value")),
     }?;
     let ty = syn::parse_str::<Type>(&value)?;
     Ok(ty)
@@ -128,7 +131,7 @@ fn getters(all_fields: &[(&Field, bool)]) -> TokenStream {
         .collect();
     let getter_names: &Vec<Ident> = &field_names
         .iter()
-        .map(|x| Ident::new(format!("get_{}", x).as_str(), Span::call_site()))
+        .map(|x| Ident::new(format!("get_{x}").as_str(), Span::call_site()))
         .collect();
     let field_types: &Vec<syn::Type> = &all_fields.iter().map(|x| x.0.ty.clone()).collect();
     quote! {
@@ -147,7 +150,7 @@ fn setters(all_fields: &[(&Field, bool)]) -> TokenStream {
         .collect();
     let setter_names: &Vec<Ident> = &field_names
         .iter()
-        .map(|x| Ident::new(format!("{}", x).as_str(), Span::call_site()))
+        .map(|x| Ident::new(format!("{x}").as_str(), Span::call_site()))
         .collect();
     let field_types: &Vec<syn::Type> = &all_fields.iter().map(|x| x.0.ty.clone()).collect();
     quote! {
